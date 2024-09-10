@@ -1,26 +1,52 @@
 use std::net::{TcpListener, TcpStream};
-use std::io::Read;
+use std::io::{Read, Write};
+use std::fs;
 
 fn handle_connection(mut stream: TcpStream) {
-    let mut buffer = [0; 512];
+    let mut buffer = [0; 128];
     stream.read(&mut buffer).unwrap();
-    println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
+
+    // Read the contents of the file
+    let contents = fs::read_to_string("src/hello.html").unwrap();
+
+    // Calculate the content length
+    let content_length = contents.len();
+
+    // Format the HTTP response with headers
+    let response = format!(
+        "HTTP/1.1 200 OK\r\n\
+        Content-Type: text/html; charset=UTF-8\r\n\
+        Content-Length: {}\r\n\
+        Connection: close\r\n\
+        \r\n{}",
+        content_length,
+        contents
+    );
+
+    
+
+    // Write the response to the stream and flush it
+    stream.write_all(response.as_bytes()).unwrap();
+    stream.flush().unwrap();
+
 }
 
 fn main() {
-
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
     println!("Server listening on port 7878");
 
-    // This will block and wait for incoming connections
     for stream in listener.incoming() {
-        // For now, just print out a message when a connection is received
+        let stream = stream.unwrap();
         println!("Connection established!");
+
+        handle_connection(stream);
     }
 }
 
 
-
+// #0 
+// I am trying to create a web server using vanilla rust (or as few crates as possible)
+//
 // #1 ---------------------------------------------------
 // let listener = TcpListener
 // Create an instance of a `TcpListener`` and bind it to a variable `listener`
@@ -42,5 +68,12 @@ fn main() {
 // read returns a Result<usize, std::io::Error>, where usize == the number of bytes read.
 // unwrap() handles Result if success. If fail => panic.
 // ---
+// Processing the data:
 // println!("Request: {}", String::from_utf8_lossy(&buffer[..])); -> processes data
-//
+// (println! in Rust is a macro, NOT a function)
+// the data in buffer is usally raw bytes, so we need to convert them into strings.
+// string::from_utf8_lossy - converts the buffer. Any invalid utf-8 sequence -> "�"
+// -------------------
+
+// !!! The chronic problem I have is that in Chrome (for example) the response takes too long to get, 
+// !!! that the browser times out.
